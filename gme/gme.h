@@ -230,7 +230,9 @@ BLARGG_EXPORT int gme_nsf_vis_enable( Music_Emu*, int enable );
 BLARGG_EXPORT int gme_nsf_vis_read( Music_Emu*, gme_nsf_frame_t* out, int max );
 
 /* Same for NSF, NSFe, HES, GBS, VGM, GYM and SPC; for formats without a play routine
- * a frame is taken 60 times per second. */
+ * a frame is taken 60 times per second. enable = 2: registers only, the emulator
+ * may skip sound synthesis (VGM, GYM: no FM), for a second emulator that only
+ * looks ahead; its audio output must not be used. */
 BLARGG_EXPORT int gme_vis_enable( Music_Emu*, int enable );
 BLARGG_EXPORT int gme_vis_read( Music_Emu*, gme_vis_frame_t* out, int max );
 

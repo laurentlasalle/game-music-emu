@@ -72,7 +72,7 @@ protected:
 
 public:
 	// OCP visualisation, see gme_vis_enable() / gme_vis_read()
-	bool vis_enable( bool e ) { return vis.enable( e ); }
+	bool vis_enable( bool e, bool light = false ) { bool r = vis.enable( e ); vis.light = e && light; return r; }
 	int  vis_read( gme_vis_frame_t* out, int max ) { return vis.read( out, max ); }
 protected:
 	Gme_Vis vis;

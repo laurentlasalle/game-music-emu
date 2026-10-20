@@ -179,7 +179,7 @@ blip_time_t Vgm_Emu_Impl::run_commands( vgm_time_t end_time )
 		case cmd_ym2413:
 			if ( vis.on )
 				Gme_Vis_Genesis::ym2413( vis.cur, pos [0], pos [1] );
-			if ( ym2413[0].run_until( to_fm_time( vgm_time ) ) )
+			if ( !vis.light && ym2413[0].run_until( to_fm_time( vgm_time ) ) )
 				ym2413[0].write( pos [0], pos [1] );
 			pos += 2;
 			break;
@@ -198,7 +198,9 @@ blip_time_t Vgm_Emu_Impl::run_commands( vgm_time_t end_time )
 				else
 					Gme_Vis_Genesis::ym2612( vis.cur, 0, pos [0], pos [1] );
 			}
-			if ( pos [0] == ym2612_dac_port )
+			if ( vis.light )
+				; // registers only: no FM synthesis
+			else if ( pos [0] == ym2612_dac_port )
 			{
 				write_pcm( vgm_time, pos [1] );
 			}
@@ -217,7 +219,7 @@ blip_time_t Vgm_Emu_Impl::run_commands( vgm_time_t end_time )
 		case cmd_ym2612_port1:
 			if ( vis.on )
 				Gme_Vis_Genesis::ym2612( vis.cur, 1, pos [0], pos [1] );
-			if ( ym2612[0].run_until( to_fm_time( vgm_time ) ) )
+			if ( !vis.light && ym2612[0].run_until( to_fm_time( vgm_time ) ) )
 				ym2612[0].write1( pos [0], pos [1] );
 			pos += 2;
 			break;
@@ -269,7 +271,10 @@ blip_time_t Vgm_Emu_Impl::run_commands( vgm_time_t end_time )
 				case cmd_pcm_delay:
 					if ( vis.on )
 						Gme_Vis_Genesis::dac( vis.cur );
-					write_pcm( vgm_time, *pcm_pos++ );
+					if ( vis.light )
+						pcm_pos++;
+					else
+						write_pcm( vgm_time, *pcm_pos++ );
 					vgm_time += cmd & 0x0F;
 					break;
 
@@ -326,15 +331,18 @@ int Vgm_Emu_Impl::play_frame( blip_time_t blip_time, int sample_count, sample_t*
 
 	run_commands( vgm_time );
 
-	if ( ym2612[0].enabled() )
-		ym2612[0].run_until( pairs );
-	if ( ym2612[1].enabled() )
-		ym2612[1].run_until( pairs );
+	if ( !vis.light )
+	{
+		if ( ym2612[0].enabled() )
+			ym2612[0].run_until( pairs );
+		if ( ym2612[1].enabled() )
+			ym2612[1].run_until( pairs );
 
-	if ( ym2413[0].enabled() )
-		ym2413[0].run_until( pairs );
-	if ( ym2413[1].enabled() )
-		ym2413[1].run_until( pairs );
+		if ( ym2413[0].enabled() )
+			ym2413[0].run_until( pairs );
+		if ( ym2413[1].enabled() )
+			ym2413[1].run_until( pairs );
+	}
 
 	fm_time_offset = (vgm_time * fm_time_factor + fm_time_offset) -
 			((long) pairs << fm_time_bits);

@@ -497,11 +497,11 @@ BLARGG_EXPORT int gme_vis_enable( Music_Emu* me, int enable )
 #endif
 #ifdef USE_GME_VGM
 	if ( me->type() == gme_vgm_type || me->type() == gme_vgz_type )
-		return static_cast<Vgm_Emu*>( me )->vis_enable( enable != 0 ) ? 1 : 0;
+		return static_cast<Vgm_Emu*>( me )->vis_enable( enable != 0, enable == 2 ) ? 1 : 0;
 #endif
 #ifdef USE_GME_GYM
 	if ( me->type() == gme_gym_type )
-		return static_cast<Gym_Emu*>( me )->vis_enable( enable != 0 ) ? 1 : 0;
+		return static_cast<Gym_Emu*>( me )->vis_enable( enable != 0, enable == 2 ) ? 1 : 0;
 #endif
 #ifdef USE_GME_SPC
 	if ( me->type() == gme_spc_type )

@@ -398,7 +398,8 @@ int Gym_Emu::play_frame( blip_time_t blip_time, int sample_count, sample_t* buf 
 	apu.end_frame( blip_time );
 
 	memset( buf, 0, sample_count * sizeof *buf );
-	fm.run( sample_count >> 1, buf );
+	if ( !vis.light ) // registers only: no FM synthesis
+		fm.run( sample_count >> 1, buf );
 
 	return sample_count;
 }

@@ -10,6 +10,7 @@ struct Gme_Vis
 {
 	enum { ring_size = 1024 };
 	bool on;
+	bool light;              // registers only: the emulator may skip sound synthesis (output is not usable)
 	bool have;
 	gme_vis_frame_t cur;     // frame being built (state is filled when it is pushed)
 	long cur_sample;
@@ -19,7 +20,7 @@ struct Gme_Vis
 	int head;
 	int count;
 
-	Gme_Vis() : on( false ), ring( 0 ), head( 0 ), count( 0 ) { reset(); }
+	Gme_Vis() : on( false ), light( false ), ring( 0 ), head( 0 ), count( 0 ) { reset(); }
 	~Gme_Vis() { delete [] ring; }
 
 	void reset()
@@ -42,6 +43,8 @@ struct Gme_Vis
 				return false;
 		}
 		on = e;
+		if ( !e )
+			light = false;
 		head = 0;
 		count = 0;
 		return true;
