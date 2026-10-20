@@ -66,3 +66,9 @@ gme_fixed_track_count
 # Since 0.6.5
 gme_seek_scaled
 gme_tell_scaled
+# OCP visualisation API
+gme_vis_enable
+gme_vis_read
+gme_vis_ram
+gme_nsf_vis_enable
+gme_nsf_vis_read
