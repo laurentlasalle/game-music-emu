@@ -314,6 +314,10 @@ blargg_err_t Spc_Emu::start_track_( int track )
 	resampler.clear();
 	filter.clear();
 	RETURN_ERR( apu.load_spc( file_data, file_size ) );
+	vis.reset();
+	vis_native = 0;
+	vis.next_clock = native_sample_rate / 60.0;
+	apu.vis_take_kon();
 	filter.set_gain( (int) (gain() * SPC_Filter::gain_unit) );
 	apu.clear_echo();
 	track_info_t spc_info;
@@ -327,9 +331,41 @@ blargg_err_t Spc_Emu::start_track_( int track )
 
 blargg_err_t Spc_Emu::play_and_filter( long count, sample_t out [] )
 {
-	RETURN_ERR( apu.play( count, out ) );
+	if ( vis.on )
+	{ // run in pieces so that a snapshot is taken every 1/60 s of SPC time
+		long done = 0;
+		while ( done < count )
+		{
+			long frames = (long) (vis.next_clock - vis_native + 0.999);
+			long n = (count - done) / 2;
+			if ( frames < 1 )
+				frames = 1;
+			if ( n > frames )
+				n = frames;
+			RETURN_ERR( apu.play( n * 2, out + done ) );
+			done += n * 2;
+			vis_native += n;
+			if ( vis_native >= vis.next_clock )
+				vis_snapshot();
+		}
+	}
+	else
+	{
+		RETURN_ERR( apu.play( count, out ) );
+	}
 	filter.run( out, count );
 	return 0;
+}
+
+void Spc_Emu::vis_snapshot()
+{
+	vis.cur.system = 4;
+	for ( int i = 0; i < 0x80; i++ )
+		vis.cur.spc_dsp [i] = (unsigned char) apu.vis_dsp_read( i );
+	vis.cur.spc_kon = (unsigned char) apu.vis_take_kon();
+	vis.cur_sample = (long) (vis.next_clock * sample_rate() / native_sample_rate) - vis_output_offset();
+	vis.push();
+	vis.next_clock += native_sample_rate / 60.0;
 }
 
 blargg_err_t Spc_Emu::skip_( long count )

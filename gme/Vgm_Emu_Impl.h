@@ -6,6 +6,7 @@
 
 #include "Dual_Resampler.h"
 #include "Classic_Emu.h"
+#include "Gme_Vis.h"
 #include "Ym2413_Emu.h"
 #include "Ym2612_Emu.h"
 #include "Sms_Apu.h"
@@ -68,6 +69,18 @@ protected:
 	Blip_Synth<blip_med_quality,1> dac_synth;
 
 	friend class Vgm_Emu;
+
+public:
+	// OCP visualisation, see gme_vis_enable() / gme_vis_read()
+	bool vis_enable( bool e ) { return vis.enable( e ); }
+	int  vis_read( gme_vis_frame_t* out, int max ) { return vis.read( out, max ); }
+protected:
+	Gme_Vis vis;
+	Gme_Vis_Genesis vis_gen;
+	double vis_vgm_base;          // vgm time (44100 Hz) of previous run_commands() blocks
+	long vis_clocks [3];          // SN76489, YM2413, YM2612 clocks
+	void vis_reset();
+	void vis_until( vgm_time_t );
 };
 
 #endif

@@ -200,6 +200,25 @@ typedef struct gme_nsf_frame_t
 	unsigned char gb_vol [4];        /* current envelope volume 0-15 of square1, square2, (wave), noise */
 	unsigned char gb_enabled;        /* bit n: channel n running (length counter not expired) */
 	unsigned char gb_trig;           /* bit n: channel n triggered during the frame */
+
+	/* VGM / GYM (Sega Genesis / Master System): first chip of each kind (system 3) */
+	unsigned char  vgm_chips;          /* 1 = SN76489, 2 = YM2413, 4 = YM2612 */
+	long           psg_clock, ym2413_clock, ym2612_clock;
+	unsigned char  ym2612 [2][0x100];  /* registers of port 0 / port 1 */
+	unsigned char  ym2612_key [6];     /* operators keyed on (bits 4-7 of $28) per channel */
+	unsigned char  ym2612_trig;        /* bit n: channel n keyed on during the frame */
+	unsigned char  ym2612_dac;         /* DAC enabled ($2B bit 7) */
+	unsigned short ym2612_dac_writes;  /* DAC samples written during the frame */
+	unsigned short psg_period [3];     /* SN76489 tone dividers */
+	unsigned char  psg_noise;          /* noise control (bit 2 white, bits 0-1 rate) */
+	unsigned char  psg_vol [4];        /* attenuation, 0 = loudest, 15 = off */
+	unsigned char  psg_trig;           /* bit n: channel n started (volume raised) during the frame */
+	unsigned char  ym2413 [0x40];
+	unsigned short ym2413_trig;        /* bit n: channel n keyed on during the frame */
+
+	/* SPC (SNES S-DSP), system 4 */
+	unsigned char  spc_dsp [0x80];     /* DSP registers; ENVX ($x8) is the live envelope */
+	unsigned char  spc_kon;            /* voices keyed on during the frame */
 } gme_nsf_frame_t;
 
 typedef gme_nsf_frame_t gme_vis_frame_t;
@@ -210,9 +229,13 @@ BLARGG_EXPORT int gme_nsf_vis_enable( Music_Emu*, int enable );
 /* Pops up to 'max' collected frames, oldest first. Returns the number of frames copied. */
 BLARGG_EXPORT int gme_nsf_vis_read( Music_Emu*, gme_nsf_frame_t* out, int max );
 
-/* Same for NSF, NSFe, HES and GBS; for HES and GBS a frame is taken at most 60 times per second. */
+/* Same for NSF, NSFe, HES, GBS, VGM, GYM and SPC; for formats without a play routine
+ * a frame is taken 60 times per second. */
 BLARGG_EXPORT int gme_vis_enable( Music_Emu*, int enable );
 BLARGG_EXPORT int gme_vis_read( Music_Emu*, gme_vis_frame_t* out, int max );
+
+/* SPC only: the 64 KB sound RAM (samples are referenced by the DSP registers). NULL otherwise. */
+BLARGG_EXPORT const unsigned char* gme_vis_ram( Music_Emu* );
 
 
 /******** Advanced playback ********/

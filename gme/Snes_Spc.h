@@ -121,6 +121,10 @@ public:
 
 	uint8_t* smp_ram() { return m.ram.ram; }
 
+	// OCP visualisation: DSP registers, and voices keyed on since the last call
+	int vis_dsp_read( int addr ) const { return dsp.read( addr ); }
+	int vis_take_kon() { int k = dsp.vis_kon; dsp.vis_kon = 0; return k; }
+
 	void run_until( time_t t ) { run_until_( t ); }
 public:
 	BLARGG_DISABLE_NOTHROW

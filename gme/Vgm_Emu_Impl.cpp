@@ -131,6 +131,8 @@ blip_time_t Vgm_Emu_Impl::run_commands( vgm_time_t end_time )
 
 	while ( vgm_time < end_time && pos < data_end )
 	{
+		if ( vis.on )
+			vis_until( vgm_time );
 		// TODO: be sure there are enough bytes left in stream for particular command
 		// so we don't read past end
 		switch ( *pos++ )
@@ -152,6 +154,8 @@ blip_time_t Vgm_Emu_Impl::run_commands( vgm_time_t end_time )
 			break;
 
 		case cmd_psg:
+			if ( vis.on )
+				vis_gen.psg( vis.cur, *pos );
 			psg[0].write_data( to_blip_time( vgm_time ), *pos++ );
 			break;
 
@@ -173,6 +177,8 @@ blip_time_t Vgm_Emu_Impl::run_commands( vgm_time_t end_time )
 			break;
 
 		case cmd_ym2413:
+			if ( vis.on )
+				Gme_Vis_Genesis::ym2413( vis.cur, pos [0], pos [1] );
 			if ( ym2413[0].run_until( to_fm_time( vgm_time ) ) )
 				ym2413[0].write( pos [0], pos [1] );
 			pos += 2;
@@ -185,6 +191,13 @@ blip_time_t Vgm_Emu_Impl::run_commands( vgm_time_t end_time )
 			break;
 
 		case cmd_ym2612_port0:
+			if ( vis.on )
+			{
+				if ( pos [0] == ym2612_dac_port )
+					Gme_Vis_Genesis::dac( vis.cur );
+				else
+					Gme_Vis_Genesis::ym2612( vis.cur, 0, pos [0], pos [1] );
+			}
 			if ( pos [0] == ym2612_dac_port )
 			{
 				write_pcm( vgm_time, pos [1] );
@@ -202,6 +215,8 @@ blip_time_t Vgm_Emu_Impl::run_commands( vgm_time_t end_time )
 			break;
 
 		case cmd_ym2612_port1:
+			if ( vis.on )
+				Gme_Vis_Genesis::ym2612( vis.cur, 1, pos [0], pos [1] );
 			if ( ym2612[0].run_until( to_fm_time( vgm_time ) ) )
 				ym2612[0].write1( pos [0], pos [1] );
 			pos += 2;
@@ -252,6 +267,8 @@ blip_time_t Vgm_Emu_Impl::run_commands( vgm_time_t end_time )
 			switch ( cmd & 0xF0 )
 			{
 				case cmd_pcm_delay:
+					if ( vis.on )
+						Gme_Vis_Genesis::dac( vis.cur );
 					write_pcm( vgm_time, *pcm_pos++ );
 					vgm_time += cmd & 0x0F;
 					break;
@@ -270,6 +287,9 @@ blip_time_t Vgm_Emu_Impl::run_commands( vgm_time_t end_time )
 			}
 		}
 	}
+	if ( vis.on )
+		vis_until( vgm_time < end_time ? vgm_time : end_time );
+	vis_vgm_base += end_time;
 	vgm_time -= end_time;
 	this->pos = pos;
 	this->vgm_time = vgm_time;
@@ -368,5 +388,32 @@ void Vgm_Emu_Impl::update_fm_rates( long* ym2413_rate, long* ym2612_rate ) const
 		default:
 			p += command_len( *p );
 		}
+	}
+}
+
+// OCP visualisation: one snapshot every 1/60 s of VGM time (735 samples at 44100 Hz),
+// holding the registers written before that time.
+void Vgm_Emu_Impl::vis_reset()
+{
+	vis.reset();
+	vis_gen.reset();
+	Gme_Vis_Genesis::init_frame( vis.cur );
+	vis_vgm_base = 0;
+}
+
+void Vgm_Emu_Impl::vis_until( vgm_time_t t )
+{
+	double abs = vis_vgm_base + t;
+	while ( vis.next_clock < abs )
+	{
+		vis.cur.system = 3;
+		vis.cur.vgm_chips = (vis_clocks [0] ? 1 : 0) | (vis_clocks [1] ? 2 : 0) | (vis_clocks [2] ? 4 : 0);
+		vis.cur.psg_clock    = vis_clocks [0];
+		vis.cur.ym2413_clock = vis_clocks [1];
+		vis.cur.ym2612_clock = vis_clocks [2];
+		vis.cur_sample = (long) (vis.next_clock * sample_rate() / 44100.0) - vis_output_offset();
+		vis.push();
+		Gme_Vis_Genesis::next_frame( vis.cur );
+		vis.next_clock += 735;
 	}
 }

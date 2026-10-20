@@ -690,6 +690,7 @@ void Spc_Dsp::init( void* ram_64k )
 
 void Spc_Dsp::soft_reset_common()
 {
+	vis_kon = 0;
 	require( m.ram ); // init() must have been called already
 
 	m.noise              = 0x4000;

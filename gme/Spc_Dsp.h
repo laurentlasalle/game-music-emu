@@ -8,6 +8,9 @@
 
 struct Spc_Dsp {
 public:
+	// OCP visualisation: voices keyed on since last cleared
+	uint8_t vis_kon;
+
 	Spc_Dsp();
 // Setup
 
@@ -188,6 +191,8 @@ inline void Spc_Dsp::write( int addr, int data )
 {
 	assert( (unsigned) addr < register_count );
 
+	if ( addr == r_kon )
+		vis_kon |= (uint8_t) data; // OCP visualisation
 	m.regs [addr] = (uint8_t) data;
 	int low = addr & 0x0F;
 	if ( low < 0x2 ) // voice volumes

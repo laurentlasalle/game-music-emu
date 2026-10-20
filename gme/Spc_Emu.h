@@ -6,6 +6,7 @@
 
 #include "Fir_Resampler.h"
 #include "Music_Emu.h"
+#include "Gme_Vis.h"
 #include "Snes_Spc.h"
 #include "Spc_Filter.h"
 
@@ -76,6 +77,16 @@ private:
 	Snes_Spc apu;
 
 	blargg_err_t play_and_filter( long count, sample_t out [] );
+
+public:
+	// OCP visualisation, see gme_vis_enable() / gme_vis_read()
+	bool vis_enable( bool e ) { return vis.enable( e ); }
+	int  vis_read( gme_vis_frame_t* out, int max ) { return vis.read( out, max ); }
+	const unsigned char* vis_ram() { return apu.smp_ram(); }
+private:
+	Gme_Vis vis;
+	double vis_native;   // sample frames at 32 kHz since the track started
+	void vis_snapshot();
 };
 
 inline void Spc_Emu::disable_surround( bool b ) { apu.disable_surround( b ); }

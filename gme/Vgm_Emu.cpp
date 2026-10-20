@@ -30,6 +30,8 @@ using std::max;
 Vgm_Emu::Vgm_Emu()
 {
 	disable_oversampling_ = false;
+	vis_clocks [0] = vis_clocks [1] = vis_clocks [2] = 0;
+	vis_vgm_base = 0;
 	psg_dual = false;
 	psg_t6w28 = false;
 	psg_rate   = 0;
@@ -378,6 +380,9 @@ blargg_err_t Vgm_Emu::setup_fm()
 	bool ym2413_dual = ( ym2413_rate & 0x40000000 ) != 0;
 	if ( ym2413_rate && get_le32( header().version ) < 0x110 )
 		update_fm_rates( &ym2413_rate, &ym2612_rate );
+	vis_clocks [0] = get_le32( header().psg_rate ) & 0x3FFFFFFF;
+	vis_clocks [1] = ym2413_rate & 0x3FFFFFFF;
+	vis_clocks [2] = ym2612_rate & 0x3FFFFFFF;
 
 	uses_fm = false;
 
@@ -458,6 +463,7 @@ blargg_err_t Vgm_Emu::start_track_( int track )
 	pcm_pos      = pos;
 	dac_amp      = -1;
 	vgm_time     = 0;
+	vis_reset();
 	if ( get_le32( header().version ) >= 0x150 )
 	{
 		long data_offset = get_le32( header().data_offset );

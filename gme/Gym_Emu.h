@@ -8,6 +8,7 @@
 #include "Dual_Resampler.h"
 #include "Ym2612_Emu.h"
 #include "Music_Emu.h"
+#include "Gme_Vis.h"
 #include "Sms_Apu.h"
 
 class Gym_Emu : public Music_Emu, private Dual_Resampler {
@@ -63,6 +64,15 @@ private:
 	double fm_sample_rate;
 	int32_t clocks_per_frame;
 	void parse_frame();
+
+public:
+	// OCP visualisation, see gme_vis_enable() / gme_vis_read()
+	bool vis_enable( bool e ) { return vis.enable( e ); }
+	int  vis_read( gme_vis_frame_t* out, int max ) { return vis.read( out, max ); }
+private:
+	Gme_Vis vis;
+	Gme_Vis_Genesis vis_gen;
+	long vis_frame;
 
 	// dac (pcm)
 	int dac_amp;

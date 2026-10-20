@@ -83,4 +83,91 @@ struct Gme_Vis
 	}
 };
 
+// shadow registers of the Genesis / Master System chips (VGM, GYM)
+struct Gme_Vis_Genesis
+{
+	int psg_ch, psg_type; // SN76489 latch
+
+	void reset() { psg_ch = 0; psg_type = 0; }
+
+	static void ym2612( gme_vis_frame_t& f, int port, int addr, int data )
+	{
+		addr &= 0xFF;
+		f.ym2612 [port & 1][addr] = (unsigned char) data;
+		if ( port == 0 && addr == 0x28 )
+		{
+			int c = data & 7;
+			if ( (c & 3) == 3 )
+				return;
+			c = (c & 3) + ((c & 4) ? 3 : 0);
+			int key = (data >> 4) & 0x0F;
+			if ( key && !f.ym2612_key [c] )
+				f.ym2612_trig |= 1 << c;
+			f.ym2612_key [c] = (unsigned char) key;
+		}
+		else if ( port == 0 && addr == 0x2B )
+			f.ym2612_dac = (data >> 7) & 1;
+	}
+
+	static void dac( gme_vis_frame_t& f )
+	{
+		if ( f.ym2612_dac_writes < 0xFFFF )
+			f.ym2612_dac_writes++;
+	}
+
+	static void psg_vol( gme_vis_frame_t& f, int ch, int v )
+	{
+		int old = f.psg_vol [ch];
+		if ( v < 15 && (old == 15 || old - v >= 4) )
+			f.psg_trig |= 1 << ch;
+		f.psg_vol [ch] = (unsigned char) v;
+	}
+
+	void psg( gme_vis_frame_t& f, int data )
+	{
+		if ( data & 0x80 )
+		{
+			psg_ch = (data >> 5) & 3;
+			psg_type = (data >> 4) & 1;
+			if ( psg_type )
+				psg_vol( f, psg_ch, data & 0x0F );
+			else if ( psg_ch < 3 )
+				f.psg_period [psg_ch] = (unsigned short) ((f.psg_period [psg_ch] & 0x3F0) | (data & 0x0F));
+			else
+				f.psg_noise = (unsigned char) (data & 7);
+		}
+		else if ( psg_type )
+			psg_vol( f, psg_ch, data & 0x0F );
+		else if ( psg_ch < 3 )
+			f.psg_period [psg_ch] = (unsigned short) ((f.psg_period [psg_ch] & 0x0F) | ((data & 0x3F) << 4));
+		else
+			f.psg_noise = (unsigned char) (data & 7);
+	}
+
+	static void ym2413( gme_vis_frame_t& f, int addr, int data )
+	{
+		addr &= 0x3F;
+		if ( addr >= 0x20 && addr <= 0x28 && (data & 0x10) && !(f.ym2413 [addr] & 0x10) )
+			f.ym2413_trig |= 1 << (addr - 0x20);
+		f.ym2413 [addr] = (unsigned char) data;
+	}
+
+	// the frame keeps the registers; clear the per-frame events after it is pushed
+	static void next_frame( gme_vis_frame_t& f )
+	{
+		f.ym2612_trig = 0;
+		f.ym2612_dac_writes = 0;
+		f.psg_trig = 0;
+		f.ym2413_trig = 0;
+	}
+
+	static void init_frame( gme_vis_frame_t& f )
+	{
+		for ( int i = 0; i < 4; i++ )
+			f.psg_vol [i] = 15;
+		for ( int i = 0; i < 3; i++ ) // YM2612 outputs are enabled on both sides after reset
+			f.ym2612 [0][0xB4 + i] = f.ym2612 [1][0xB4 + i] = 0xC0;
+	}
+};
+
 #endif

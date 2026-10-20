@@ -471,6 +471,15 @@ BLARGG_EXPORT int gme_nsf_vis_read( Music_Emu* me, gme_nsf_frame_t* out, int max
 #ifdef USE_GME_GBS
 #include "Gbs_Emu.h"
 #endif
+#ifdef USE_GME_VGM
+#include "Vgm_Emu.h"
+#endif
+#ifdef USE_GME_GYM
+#include "Gym_Emu.h"
+#endif
+#ifdef USE_GME_SPC
+#include "Spc_Emu.h"
+#endif
 
 BLARGG_EXPORT int gme_vis_enable( Music_Emu* me, int enable )
 {
@@ -485,6 +494,18 @@ BLARGG_EXPORT int gme_vis_enable( Music_Emu* me, int enable )
 #ifdef USE_GME_GBS
 	if ( me->type() == gme_gbs_type )
 		return static_cast<Gbs_Emu*>( me )->vis_enable( enable != 0 ) ? 1 : 0;
+#endif
+#ifdef USE_GME_VGM
+	if ( me->type() == gme_vgm_type || me->type() == gme_vgz_type )
+		return static_cast<Vgm_Emu*>( me )->vis_enable( enable != 0 ) ? 1 : 0;
+#endif
+#ifdef USE_GME_GYM
+	if ( me->type() == gme_gym_type )
+		return static_cast<Gym_Emu*>( me )->vis_enable( enable != 0 ) ? 1 : 0;
+#endif
+#ifdef USE_GME_SPC
+	if ( me->type() == gme_spc_type )
+		return static_cast<Spc_Emu*>( me )->vis_enable( enable != 0 ) ? 1 : 0;
 #endif
 	return 0;
 }
@@ -501,5 +522,26 @@ BLARGG_EXPORT int gme_vis_read( Music_Emu* me, gme_vis_frame_t* out, int max )
 	if ( me->type() == gme_gbs_type )
 		return static_cast<Gbs_Emu*>( me )->vis_read( out, max );
 #endif
+#ifdef USE_GME_VGM
+	if ( me->type() == gme_vgm_type || me->type() == gme_vgz_type )
+		return static_cast<Vgm_Emu*>( me )->vis_read( out, max );
+#endif
+#ifdef USE_GME_GYM
+	if ( me->type() == gme_gym_type )
+		return static_cast<Gym_Emu*>( me )->vis_read( out, max );
+#endif
+#ifdef USE_GME_SPC
+	if ( me->type() == gme_spc_type )
+		return static_cast<Spc_Emu*>( me )->vis_read( out, max );
+#endif
 	return gme_nsf_vis_read( me, out, max );
+}
+
+BLARGG_EXPORT const unsigned char* gme_vis_ram( Music_Emu* me )
+{
+#ifdef USE_GME_SPC
+	if ( me && me->type() == gme_spc_type )
+		return static_cast<Spc_Emu*>( me )->vis_ram();
+#endif
+	return 0;
 }

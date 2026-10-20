@@ -236,6 +236,11 @@ blargg_err_t Gym_Emu::start_track_( int track )
 	pos         = data;
 	loop_remain = get_le32( header_.loop_start );
 
+	vis.reset();
+	vis_gen.reset();
+	Gme_Vis_Genesis::init_frame( vis.cur );
+	vis_frame = 0;
+
 	prev_dac_count = 0;
 	dac_enabled    = false;
 	dac_amp        = -1;
@@ -312,6 +317,13 @@ void Gym_Emu::parse_frame()
 		if ( cmd == 1 )
 		{
 			int data2 = *pos++;
+			if ( vis.on )
+			{
+				if ( data == 0x2A )
+					Gme_Vis_Genesis::dac( vis.cur );
+				else
+					Gme_Vis_Genesis::ym2612( vis.cur, 0, data, data2 );
+			}
 			if ( data != 0x2A )
 			{
 				if ( data == 0x2B )
@@ -327,10 +339,14 @@ void Gym_Emu::parse_frame()
 		}
 		else if ( cmd == 2 )
 		{
+			if ( vis.on )
+				Gme_Vis_Genesis::ym2612( vis.cur, 1, data, *pos );
 			fm.write1( data, *pos++ );
 		}
 		else if ( cmd == 3 )
 		{
+			if ( vis.on )
+				vis_gen.psg( vis.cur, data );
 			apu.write_data( 0, data );
 		}
 		else
@@ -363,7 +379,21 @@ void Gym_Emu::parse_frame()
 int Gym_Emu::play_frame( blip_time_t blip_time, int sample_count, sample_t* buf )
 {
 	if ( !track_ended() )
+	{
 		parse_frame();
+		if ( vis.on )
+		{ // one GYM frame = 1/60 s; the registers written during frame n sound during frame n
+			vis.cur.system = 3;
+			vis.cur.vgm_chips = 1 | 4;
+			vis.cur.psg_clock = 3579545;
+			vis.cur.ym2413_clock = 0;
+			vis.cur.ym2612_clock = 7670453;
+			vis.cur_sample = (long) ((double) vis_frame * sample_rate() / 60.0) - vis_output_offset();
+			vis.push();
+			Gme_Vis_Genesis::next_frame( vis.cur );
+		}
+		vis_frame++;
+	}
 
 	apu.end_frame( blip_time );
 
