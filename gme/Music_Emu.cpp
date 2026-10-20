@@ -36,6 +36,7 @@ void Music_Emu::clear_track_vars()
 	out_time         = 0;
 	out_time_scaled  = 0;
 	emu_time         = 0;
+	vis_stream_      = 0;
 	emu_track_ended_ = true;
 	track_ended_     = true;
 	fade_start       = INT_MAX / 2 + 1;
@@ -359,6 +360,7 @@ void Music_Emu::emu_play( long count, sample_t* out )
 {
 	check( current_track_ >= 0 );
 	emu_time += count;
+	vis_stream_ += count;
 	if ( current_track_ >= 0 && !emu_track_ended_ )
 		end_track_if_error( play_( count, out ) );
 	else

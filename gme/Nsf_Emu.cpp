@@ -6,6 +6,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <algorithm>
+#include <new>
 
 #if !NSF_EMU_APU_ONLY
 	#include "Nes_Namco_Apu.h"
@@ -53,6 +54,11 @@ int Nsf_Emu::pcm_read( void* emu, nes_addr_t addr )
 
 Nsf_Emu::Nsf_Emu()
 {
+	vis_on = false;
+	vis_ring = 0;
+	vis_ring_head = 0;
+	vis_ring_count = 0;
+	vis_reset();
 	vrc6  = 0;
 	namco = 0;
 	fme7  = 0;
@@ -68,7 +74,7 @@ Nsf_Emu::Nsf_Emu()
 	memset( unmapped_code, Nes_Cpu::bad_opcode, sizeof unmapped_code );
 }
 
-Nsf_Emu::~Nsf_Emu() { unload(); }
+Nsf_Emu::~Nsf_Emu() { unload(); delete [] vis_ring; }
 
 void Nsf_Emu::unload()
 {
@@ -459,6 +465,7 @@ void Nsf_Emu::set_voice( int i, Blip_Buffer* buf, Blip_Buffer*, Blip_Buffer* )
 
 void Nsf_Emu::cpu_write_misc( nes_addr_t addr, int data )
 {
+	if ( vis_on ) vis_exp_write( addr, data );
 	#if !NSF_EMU_APU_ONLY
 	{
 		if ( fds )
@@ -600,6 +607,7 @@ blargg_err_t Nsf_Emu::start_track_( int track )
 	}
 	#endif
 
+	vis_reset();
 	play_ready = 4;
 	play_extra = 0;
 	next_play = play_period / clock_divisor;
@@ -659,6 +667,7 @@ blargg_err_t Nsf_Emu::run_clocks( blip_time_t& duration, int )
 				low_mem [0x100 + r.sp--] = (badop_addr - 1) >> 8;
 				low_mem [0x100 + r.sp--] = (badop_addr - 1) & 0xFF;
 				GME_FRAME_HOOK( this );
+				if ( vis_on ) vis_frame();
 			}
 		}
 	}
@@ -670,6 +679,7 @@ blargg_err_t Nsf_Emu::run_clocks( blip_time_t& duration, int )
 	}
 
 	duration = time();
+	vis_clock_base += duration;
 	next_play -= duration;
 	check( next_play >= 0 );
 	if ( next_play < 0 )
@@ -689,4 +699,167 @@ blargg_err_t Nsf_Emu::run_clocks( blip_time_t& duration, int )
 	#endif
 
 	return 0;
+}
+
+// OCP visualisation
+
+void Nsf_Emu::vis_reset()
+{
+	memset( &vis_cur, 0, sizeof vis_cur );
+	vis_have_frame = false;
+	vis_cur_sample = 0;
+	vis_clock_base = 0;
+	vis_fme7_latch = 0;
+	vis_n163_addr = 0;
+	vis_vrc7_addr = 0;
+	vis_ring_head = 0;
+	vis_ring_count = 0;
+}
+
+void Nsf_Emu::vis_enable( bool enable )
+{
+	if ( enable && !vis_ring )
+	{
+		vis_ring = new (std::nothrow) gme_nsf_frame_t [vis_ring_size];
+		if ( !vis_ring )
+			return;
+	}
+	vis_on = enable;
+	vis_ring_head = 0;
+	vis_ring_count = 0;
+}
+
+int Nsf_Emu::vis_read( gme_nsf_frame_t* out, int max )
+{
+	int n = 0;
+	while ( n < max && vis_ring_count )
+	{
+		int tail = (vis_ring_head - vis_ring_count + vis_ring_size) % vis_ring_size;
+		out [n++] = vis_ring [tail];
+		vis_ring_count--;
+	}
+	return n;
+}
+
+long Nsf_Emu::vis_sample_now()
+{
+	double clocks = vis_clock_base + time();
+	return (long) (clocks * sample_rate() / clock_rate_) - vis_output_offset();
+}
+
+void Nsf_Emu::vis_frame()
+{
+	long now = vis_sample_now();
+	if ( vis_have_frame && vis_ring )
+	{
+		vis_cur.sample = vis_cur_sample;
+		vis_cur.chips  = header_.chip_flags;
+		vis_cur.pal    = pal_only;
+		apu.run_until( time() );
+		apu.vis_state( vis_cur.apu_vol, &vis_cur.apu_active );
+		vis_ring [vis_ring_head] = vis_cur;
+		vis_ring_head = (vis_ring_head + 1) % vis_ring_size;
+		if ( vis_ring_count < vis_ring_size )
+			vis_ring_count++;
+	}
+	vis_cur.apu_trig = 0;
+	vis_cur.exp_trig = 0;
+	vis_cur_sample = now;
+	vis_have_frame = true;
+}
+
+void Nsf_Emu::vis_apu_write( int reg, int data )
+{
+	if ( (unsigned) reg >= sizeof vis_cur.apu )
+		return;
+	vis_cur.apu [reg] = (unsigned char) data;
+	switch ( reg )
+	{
+		case 0x03: vis_cur.apu_trig |= 0x01; break;
+		case 0x07: vis_cur.apu_trig |= 0x02; break;
+		case 0x0B: vis_cur.apu_trig |= 0x04; break;
+		case 0x0F: vis_cur.apu_trig |= 0x08; break;
+		case 0x15: if ( data & 0x10 ) vis_cur.apu_trig |= 0x10; break;
+	}
+}
+
+void Nsf_Emu::vis_exp_write( unsigned addr, int data )
+{
+	unsigned flags = header_.chip_flags;
+
+	if ( (flags & fds_flag) && addr >= 0x4080 && addr <= 0x408A )
+	{
+		vis_cur.fds [addr - 0x4080] = (unsigned char) data;
+		return;
+	}
+
+	if ( flags & namco_flag )
+	{
+		if ( addr == 0xF800 )
+		{
+			vis_n163_addr = data;
+			return;
+		}
+		if ( addr == 0x4800 )
+		{
+			vis_cur.n163 [vis_n163_addr & 0x7F] = (unsigned char) data;
+			if ( vis_n163_addr & 0x80 )
+				vis_n163_addr = ((vis_n163_addr + 1) & 0x7F) | 0x80;
+			return;
+		}
+	}
+
+	if ( (flags & fme7_flag) && addr >= 0xC000 )
+	{
+		switch ( addr & 0xE000 )
+		{
+			case 0xC000:
+				vis_fme7_latch = data & 0x0F;
+				return;
+			case 0xE000:
+				if ( vis_fme7_latch >= 8 && vis_fme7_latch <= 10 &&
+				     !(vis_cur.fme7 [vis_fme7_latch] & 0x0F) && (data & 0x0F) )
+					vis_cur.exp_trig |= 1u << (20 + vis_fme7_latch - 8);
+				vis_cur.fme7 [vis_fme7_latch] = (unsigned char) data;
+				return;
+		}
+	}
+
+	if ( flags & vrc6_flag )
+	{
+		unsigned reg = addr & 0x0FFF;
+		unsigned osc = (addr - 0x9000) >> 12;
+		if ( osc < 3 && reg < 3 )
+		{
+			if ( reg == 2 && (data & 0x80) && !(vis_cur.vrc6 [osc][2] & 0x80) )
+				vis_cur.exp_trig |= 1u << osc;
+			vis_cur.vrc6 [osc][reg] = (unsigned char) data;
+			return;
+		}
+	}
+
+	if ( (flags & mmc5_flag) && addr >= 0x5000 && addr <= 0x5015 )
+	{
+		vis_cur.mmc5 [addr - 0x5000] = (unsigned char) data;
+		if ( addr == 0x5003 ) vis_cur.exp_trig |= 1u << 3;
+		if ( addr == 0x5007 ) vis_cur.exp_trig |= 1u << 4;
+		return;
+	}
+
+	if ( flags & vrc7_flag )
+	{
+		if ( addr == 0x9010 )
+		{
+			vis_vrc7_addr = data & 0x3F;
+			return;
+		}
+		if ( (unsigned) (addr - 0x9028) <= 0x08 )
+		{
+			int r = vis_vrc7_addr;
+			if ( r >= 0x20 && r <= 0x25 && (data & 0x10) && !(vis_cur.vrc7 [r] & 0x10) )
+				vis_cur.exp_trig |= 1u << (6 + r - 0x20);
+			vis_cur.vrc7 [r] = (unsigned char) data;
+			return;
+		}
+	}
 }

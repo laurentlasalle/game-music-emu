@@ -389,3 +389,35 @@ int Nes_Apu::read_status( nes_time_t time )
 
 	return result;
 }
+
+void Nes_Apu::vis_state( unsigned char vol [5], unsigned char* active ) const
+{
+	unsigned char a = 0;
+	const Nes_Square* sq [2] = { &square1, &square2 };
+	for ( int i = 0; i < 2; i++ )
+	{
+		int v = sq [i]->volume();
+		int period = sq [i]->period();
+		int offset = period >> (sq [i]->regs [1] & 7);
+		bool audible = ((osc_enables >> i) & 1) && v && period >= 8 && (period + offset) < 0x800;
+		vol [i] = (unsigned char) (audible ? v : 0);
+		if ( audible ) a |= 1 << i;
+	}
+	{
+		bool audible = ((osc_enables >> 2) & 1) && triangle.length_counter && triangle.linear_counter && triangle.period () + 1 >= 3;
+		vol [2] = audible ? 15 : 0;
+		if ( audible ) a |= 4;
+	}
+	{
+		int v = noise.volume();
+		bool audible = ((osc_enables >> 3) & 1) && v;
+		vol [3] = (unsigned char) (audible ? v : 0);
+		if ( audible ) a |= 8;
+	}
+	{
+		bool audible = dmc.length_counter > 0 || !dmc.silence;
+		vol [4] = (unsigned char) (dmc.dac >> 3);
+		if ( audible ) a |= 16;
+	}
+	*active = a;
+}

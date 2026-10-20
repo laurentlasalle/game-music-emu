@@ -3,6 +3,7 @@
 // Game_Music_Emu https://bitbucket.org/mpyne/game-music-emu/
 #ifndef HES_APU_H
 #define HES_APU_H
+#include "gme.h"
 
 #include "blargg_common.h"
 #include "Blip_Buffer.h"
@@ -46,6 +47,10 @@ public:
 	void write_data( blip_time_t, int addr, int data );
 
 	void end_frame( blip_time_t );
+
+	// OCP visualisation: copy register state, trig bits are cleared
+	void vis_state( gme_vis_frame_t* );
+	unsigned char vis_trig;
 
 public:
 	Hes_Apu();

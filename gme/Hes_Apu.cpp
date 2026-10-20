@@ -40,6 +40,7 @@ void Hes_Apu::reset()
 {
 	latch   = 0;
 	balance = 0xFF;
+	vis_trig = 0;
 
 	Hes_Osc* osc = &oscs [osc_count];
 	do
@@ -263,6 +264,9 @@ void Hes_Apu::write_data( blip_time_t time, int addr, int data )
 			break;
 
 		case 0x804:
+			if ( ((data & 0x80) && !(osc.control & 0x80)) ||
+			     ((data & 0x80) && (data & 0x1F) >= (osc.control & 0x1F) + 4) )
+				vis_trig |= 1 << latch;
 			if ( osc.control & 0x40 & ~data )
 				osc.phase = 0;
 			osc.control = data;
@@ -311,4 +315,20 @@ void Hes_Apu::end_frame( blip_time_t end_time )
 		osc->last_time -= end_time;
 	}
 	while ( osc != oscs );
+}
+
+void Hes_Apu::vis_state( gme_vis_frame_t* f )
+{
+	for ( int i = 0; i < osc_count; i++ )
+	{
+		Hes_Osc const& o = oscs [i];
+		f->hes_period  [i] = (unsigned short) o.period;
+		f->hes_control [i] = o.control;
+		f->hes_balance [i] = o.balance;
+		f->hes_noise   [i] = o.noise;
+		memcpy( f->hes_wave [i], o.wave, 32 );
+	}
+	f->hes_main_balance = (unsigned char) balance;
+	f->hes_trig = vis_trig;
+	vis_trig = 0;
 }

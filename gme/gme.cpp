@@ -437,3 +437,69 @@ const char* gme_type_system( gme_type_t type )
 	assert( type );
 	return type->system;
 }
+
+// OCP visualisation
+
+#if defined(USE_GME_NSF) || defined(USE_GME_NSFE)
+#include "Nsf_Emu.h"
+#endif
+
+BLARGG_EXPORT int gme_nsf_vis_enable( Music_Emu* me, int enable )
+{
+#if defined(USE_GME_NSF) || defined(USE_GME_NSFE)
+	if ( me && (me->type() == gme_nsf_type || me->type() == gme_nsfe_type) )
+	{
+		static_cast<Nsf_Emu*>( me )->vis_enable( enable != 0 );
+		return 1;
+	}
+#endif
+	return 0;
+}
+
+BLARGG_EXPORT int gme_nsf_vis_read( Music_Emu* me, gme_nsf_frame_t* out, int max )
+{
+#if defined(USE_GME_NSF) || defined(USE_GME_NSFE)
+	if ( me && (me->type() == gme_nsf_type || me->type() == gme_nsfe_type) )
+		return static_cast<Nsf_Emu*>( me )->vis_read( out, max );
+#endif
+	return 0;
+}
+
+#ifdef USE_GME_HES
+#include "Hes_Emu.h"
+#endif
+#ifdef USE_GME_GBS
+#include "Gbs_Emu.h"
+#endif
+
+BLARGG_EXPORT int gme_vis_enable( Music_Emu* me, int enable )
+{
+	if ( !me )
+		return 0;
+	if ( gme_nsf_vis_enable( me, enable ) )
+		return 1;
+#ifdef USE_GME_HES
+	if ( me->type() == gme_hes_type )
+		return static_cast<Hes_Emu*>( me )->vis_enable( enable != 0 ) ? 1 : 0;
+#endif
+#ifdef USE_GME_GBS
+	if ( me->type() == gme_gbs_type )
+		return static_cast<Gbs_Emu*>( me )->vis_enable( enable != 0 ) ? 1 : 0;
+#endif
+	return 0;
+}
+
+BLARGG_EXPORT int gme_vis_read( Music_Emu* me, gme_vis_frame_t* out, int max )
+{
+	if ( !me )
+		return 0;
+#ifdef USE_GME_HES
+	if ( me->type() == gme_hes_type )
+		return static_cast<Hes_Emu*>( me )->vis_read( out, max );
+#endif
+#ifdef USE_GME_GBS
+	if ( me->type() == gme_gbs_type )
+		return static_cast<Gbs_Emu*>( me )->vis_read( out, max );
+#endif
+	return gme_nsf_vis_read( me, out, max );
+}

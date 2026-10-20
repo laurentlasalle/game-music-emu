@@ -97,6 +97,9 @@ public:
 public:
 	Nes_Apu();
 	BLARGG_DISABLE_NOTHROW
+
+	// OCP visualisation: current output volume (0-15) and audible flags of the 5 channels
+	void vis_state( unsigned char vol [5], unsigned char* active ) const;
 private:
 	friend class Nes_Nonlinearizer;
 	void enable_nonlinear( double volume );

@@ -160,6 +160,61 @@ struct gme_info_t
 };
 
 
+/******** NSF register visualisation (OCP extension) ********/
+
+/* One entry per NSF play-routine call (one video frame), describing the sound
+ * chip state produced by that frame. 'sample' is the output sample frame
+ * (counted from gme_start_track, as returned by gme_play) where the frame
+ * becomes audible. Register arrays hold the last value written by the music. */
+typedef struct gme_nsf_frame_t
+{
+	long          sample;
+	unsigned int  chips;          /* NSF header expansion flags: 1=VRC6 2=VRC7 4=FDS 8=MMC5 16=N163 32=Sunsoft 5B */
+	int           pal;            /* 1 if the tune runs at PAL speed / clock */
+	unsigned char apu [0x18];     /* $4000-$4017 */
+	unsigned char apu_vol [5];    /* volume currently output by pulse1, pulse2, triangle (0/15), noise, dmc (dac >> 3) */
+	unsigned char apu_active;     /* bit n: 2A03 channel n is audible */
+	unsigned char apu_trig;       /* bit n: 2A03 channel n was (re)started during the frame */
+	unsigned char vrc6 [3][3];    /* $9000-2, $A000-2, $B000-2 */
+	unsigned char fme7 [16];
+	unsigned char mmc5 [0x16];    /* $5000-$5015 */
+	unsigned char fds  [0x0B];    /* $4080-$408A */
+	unsigned char n163 [0x80];
+	unsigned char vrc7 [0x40];
+	unsigned int  exp_trig;       /* expansion channel restarted during the frame: bit 0..2 VRC6 (pulse1, pulse2, saw),
+	                                 bit 3..5 MMC5 (pulse1, pulse2, pcm), bit 6..11 VRC7 key-on, bit 12..19 N163, bit 20..22 5B */
+
+	int           system;         /* 0 = NSF/NSFe (fields above), 1 = HES (hes_*), 2 = GBS (gb_*) */
+
+	/* HES (PC Engine HuC6280 PSG), snapshot of the 6 channels */
+	unsigned short hes_period [6];   /* 12 bit frequency divider */
+	unsigned char hes_control [6];   /* $0804: bit7 enable, bit6 DDA, bit0-4 volume */
+	unsigned char hes_balance [6];   /* $0805: left / right nibbles */
+	unsigned char hes_noise [6];     /* $0807 (channels 5 and 6): bit7 noise enable, bit0-4 frequency */
+	unsigned char hes_wave [6][32];  /* waveform, 5 bit samples */
+	unsigned char hes_main_balance;  /* $0801 */
+	unsigned char hes_trig;          /* bit n: channel n enabled or volume raised during the frame */
+
+	/* GBS (Game Boy APU) */
+	unsigned char gb_regs [0x30];    /* $FF10-$FF3F, wave RAM included */
+	unsigned char gb_vol [4];        /* current envelope volume 0-15 of square1, square2, (wave), noise */
+	unsigned char gb_enabled;        /* bit n: channel n running (length counter not expired) */
+	unsigned char gb_trig;           /* bit n: channel n triggered during the frame */
+} gme_nsf_frame_t;
+
+typedef gme_nsf_frame_t gme_vis_frame_t;
+
+/* Enable/disable collecting frames. Returns 0 if the emulator is not an NSF/NSFe emulator. */
+BLARGG_EXPORT int gme_nsf_vis_enable( Music_Emu*, int enable );
+
+/* Pops up to 'max' collected frames, oldest first. Returns the number of frames copied. */
+BLARGG_EXPORT int gme_nsf_vis_read( Music_Emu*, gme_nsf_frame_t* out, int max );
+
+/* Same for NSF, NSFe, HES and GBS; for HES and GBS a frame is taken at most 60 times per second. */
+BLARGG_EXPORT int gme_vis_enable( Music_Emu*, int enable );
+BLARGG_EXPORT int gme_vis_read( Music_Emu*, gme_vis_frame_t* out, int max );
+
+
 /******** Advanced playback ********/
 
 /* Adjust stereo echo depth, where 0.0 = off and 1.0 = maximum. Has no effect for

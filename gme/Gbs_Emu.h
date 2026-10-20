@@ -5,6 +5,7 @@
 #define GBS_EMU_H
 
 #include "Classic_Emu.h"
+#include "Gme_Vis.h"
 #include "Gb_Apu.h"
 #include "Gb_Cpu.h"
 
@@ -48,6 +49,13 @@ public:
 public:
 	Gbs_Emu();
 	~Gbs_Emu();
+
+	// OCP visualisation, see gme_vis_enable() / gme_vis_read()
+	bool vis_enable( bool e ) { return vis.enable( e ); }
+	int  vis_read( gme_vis_frame_t* out, int max ) { return vis.read( out, max ); }
+private:
+	Gme_Vis vis;
+	void vis_hook();
 protected:
 	blargg_err_t track_info_( track_info_t*, int track ) const;
 	blargg_err_t load_( Data_Reader& );

@@ -75,6 +75,7 @@ void Nsf_Emu::cpu_write( nes_addr_t addr, int data )
 	if ( unsigned (addr - Nes_Apu::start_addr) <= Nes_Apu::end_addr - Nes_Apu::start_addr )
 	{
 		GME_APU_HOOK( this, addr - Nes_Apu::start_addr, data );
+		if ( vis_on ) vis_apu_write( addr - Nes_Apu::start_addr, data );
 		apu.write_register( cpu::time(), addr, data );
 		return;
 	}

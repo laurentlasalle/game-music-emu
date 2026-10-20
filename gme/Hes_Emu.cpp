@@ -253,6 +253,7 @@ blargg_err_t Hes_Emu::start_track_( int track )
 
 	recalc_timer_load();
 	last_frame_hook = 0;
+	vis.reset();
 
 	return 0;
 }
@@ -477,6 +478,9 @@ int Hes_Emu::cpu_done()
 	{
 		hes_time_t present = time();
 
+		if ( vis.on )
+			vis_hook( present );
+
 		if ( irq.timer <= present && !(irq.disables & timer_mask) )
 		{
 			timer.fired = true;
@@ -540,6 +544,7 @@ blargg_err_t Hes_Emu::run_clocks( blip_time_t& duration_, int )
 	#if GME_FRAME_HOOK_DEFINED
 		last_frame_hook -= duration;
 	#endif
+	vis.clock_base += duration;
 	cpu::end_frame( duration );
 	::adjust_time( irq.timer, duration );
 	::adjust_time( irq.vdp,   duration );
@@ -547,4 +552,27 @@ blargg_err_t Hes_Emu::run_clocks( blip_time_t& duration_, int )
 	adpcm.end_frame( duration );
 
 	return 0;
+}
+
+// OCP visualisation: called on every interrupt, takes at most 60 snapshots per second.
+// The state at an interrupt is the result of the music code run since the previous one.
+void Hes_Emu::vis_hook( hes_time_t present )
+{
+	double abs = vis.clock_base + present;
+	if ( !vis.due( abs, clock_rate() ) )
+		return;
+	long now = (long) (abs * sample_rate() / clock_rate()) - vis_output_offset();
+	if ( vis.have )
+	{
+		vis.cur.system = 1;
+		apu.vis_state( &vis.cur );
+		vis.push();
+	}
+	else
+	{
+		gme_vis_frame_t dummy;
+		apu.vis_state( &dummy ); // clear trig bits
+	}
+	vis.cur_sample = now;
+	vis.have = true;
 }

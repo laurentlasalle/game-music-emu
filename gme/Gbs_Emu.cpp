@@ -230,6 +230,7 @@ blargg_err_t Gbs_Emu::start_track_( int track )
 	ram [hi_page + 7] = header_.timer_mode;
 	update_timer();
 	next_play = play_period;
+	vis.reset();
 
 	cpu::r.a  = track;
 	cpu::r.pc = idle_addr;
@@ -265,6 +266,8 @@ blargg_err_t Gbs_Emu::run_clocks( blip_time_t& duration, int )
 				next_play += play_period;
 				cpu_jsr( get_le16( header_.play_addr ) );
 				GME_FRAME_HOOK( this );
+				if ( vis.on )
+					vis_hook();
 				// TODO: handle timer rates different than 60 Hz
 			}
 			else if ( cpu::r.pc > 0xFFFF )
@@ -284,10 +287,34 @@ blargg_err_t Gbs_Emu::run_clocks( blip_time_t& duration, int )
 	}
 
 	duration = cpu_time;
+	vis.clock_base += cpu_time;
 	next_play -= cpu_time;
 	if ( next_play < 0 ) // could go negative if routine is taking too long to return
 		next_play = 0;
 	apu.end_frame( cpu_time );
 
 	return 0;
+}
+
+// OCP visualisation: called before each call of the play routine, at most 60 snapshots per second.
+// The state at that point is the result of the previous play routine calls.
+void Gbs_Emu::vis_hook()
+{
+	double abs = vis.clock_base + cpu_time;
+	if ( !vis.due( abs, clock_rate() ) )
+		return;
+	long now = (long) (abs * sample_rate() / clock_rate()) - vis_output_offset();
+	if ( vis.have )
+	{
+		vis.cur.system = 2;
+		apu.vis_state( cpu_time, &vis.cur );
+		vis.push();
+	}
+	else
+	{
+		gme_vis_frame_t dummy;
+		apu.vis_state( cpu_time, &dummy );
+	}
+	vis.cur_sample = now;
+	vis.have = true;
 }

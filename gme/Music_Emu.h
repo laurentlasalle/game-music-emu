@@ -187,6 +187,11 @@ private:
 	int32_t out_time;        // number of samples played since start of track
 	int32_t out_time_scaled; // number of samples played since start of track (scaled with tempo)
 	int32_t emu_time;        // number of samples emulator has generated since start of track
+	int32_t vis_stream_;     // number of samples requested from play_() since start of track (OCP visualisation)
+public:
+	// difference between the emulator's sample stream and the output sample count, in sample frames
+	int32_t vis_output_offset() const { return (vis_stream_ - emu_time) / out_channels(); }
+private:
 	bool emu_track_ended_;   // emulator has reached end of track
 	bool emu_autoload_playback_limit_; // whether to load and obey track length by default
 	volatile bool track_ended_;

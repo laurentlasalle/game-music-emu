@@ -26,6 +26,7 @@ using std::max;
 
 Gb_Apu::Gb_Apu()
 {
+	vis_trig = 0;
 	memset(regs, 0, sizeof(regs));
 
 	square1.synth = &square_synth;
@@ -107,6 +108,7 @@ void Gb_Apu::set_tempo( double t )
 
 void Gb_Apu::reset()
 {
+	vis_trig = 0;
 	next_frame_time = 0;
 	last_time       = 0;
 	frame_count     = 0;
@@ -216,6 +218,9 @@ void Gb_Apu::write_register( blip_time_t time, unsigned addr, int data )
 	int old_reg = regs [reg];
 	regs [reg] = data;
 
+	if ( (data & 0x80) && reg < 0x14 && (reg % 5) == 4 )
+		vis_trig |= 1 << (reg / 5);
+
 	if ( addr < vol_reg )
 	{
 		write_osc( reg / 5, reg, data );
@@ -309,4 +314,19 @@ int Gb_Apu::read_register( blip_time_t time, unsigned addr )
 	}
 
 	return data;
+}
+
+void Gb_Apu::vis_state( blip_time_t time, gme_vis_frame_t* f )
+{
+	run_until( time );
+	memcpy( f->gb_regs, regs, sizeof f->gb_regs < sizeof regs ? sizeof f->gb_regs : sizeof regs );
+	f->gb_enabled = 0;
+	for ( int i = 0; i < osc_count; i++ )
+	{
+		f->gb_vol [i] = (unsigned char) oscs [i]->volume;
+		if ( oscs [i]->enabled )
+			f->gb_enabled |= 1 << i;
+	}
+	f->gb_trig = vis_trig;
+	vis_trig = 0;
 }

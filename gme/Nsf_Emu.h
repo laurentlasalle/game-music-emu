@@ -81,6 +81,29 @@ protected:
 	enum { bank_size = 0x1000 };
 	Rom_Data<bank_size> rom;
 
+public:
+	// OCP visualisation, see gme_nsf_vis_enable() / gme_nsf_vis_read()
+	void vis_enable( bool );
+	int  vis_read( gme_nsf_frame_t* out, int max );
+private:
+	enum { vis_ring_size = 1024 };
+	bool vis_on;
+	bool vis_have_frame;
+	gme_nsf_frame_t vis_cur;      // shadow registers + triggers of the frame being built
+	long vis_cur_sample;
+	double vis_clock_base;        // clocks emulated in previous run_clocks() blocks
+	int vis_fme7_latch;
+	int vis_n163_addr;
+	int vis_vrc7_addr;
+	gme_nsf_frame_t* vis_ring;
+	int vis_ring_head;
+	int vis_ring_count;
+	void vis_reset();
+	long vis_sample_now();
+	void vis_frame();
+	void vis_apu_write( int reg, int data );
+	void vis_exp_write( unsigned addr, int data );
+
 public: private: friend class Nes_Cpu;
 	void cpu_jsr( nes_addr_t );
 	int cpu_read( nes_addr_t );

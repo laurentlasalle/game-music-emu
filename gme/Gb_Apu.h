@@ -4,6 +4,7 @@
 #ifndef GB_APU_H
 #define GB_APU_H
 
+#include "gme.h"
 #include "Gb_Oscs.h"
 
 class Gb_Apu {
@@ -49,6 +50,10 @@ public:
 	void end_frame( blip_time_t );
 
 	void set_tempo( double );
+
+	// OCP visualisation: runs the oscillators up to 'time' and copies their state; trig bits are cleared
+	void vis_state( blip_time_t time, gme_vis_frame_t* );
+	unsigned char vis_trig;
 
 public:
 	Gb_Apu();
